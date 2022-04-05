@@ -3,16 +3,7 @@ from random import shuffle, random, choice
 import numpy as np
 from scipy.spatial.distance import cityblock
 
-manhattan = False
-
-
-def set_heuristic(mh):
-    global manhattan
-    if mh:
-        manhattan = True
-    else:
-        manhattan = False
-
+manhattan = True
 
 class Puzzle:
     """
@@ -197,6 +188,14 @@ class Puzzle:
         return Puzzle(puzzle_list, self)
 
 
+def successors(puzzle):
+    successors = str(puzzle)
+    while puzzle.parent is not None:
+        puzzle = puzzle.parent
+        successors = str(puzzle) + "  ↓\n" + successors
+    return successors
+
+
 class Solver:
     def __init__(self, original_puzzle, goal_puzzle=None):
         self.original_puzzle = original_puzzle
@@ -206,13 +205,6 @@ class Solver:
             self.goal_puzzle = goal_puzzle
         self.open = []
         self.closed = []
-
-    def successors(self, puzzle):
-        successors = str(puzzle)
-        while puzzle.parent is not None:
-            puzzle = puzzle.parent
-            successors = str(puzzle) + "  ↓\n" + successors
-        return successors
 
     def solve(self):
         self.open.append(self.original_puzzle)
@@ -244,7 +236,7 @@ class Solver:
             self.open = sorted(self.open, key=lambda puzzle: int(puzzle.f), reverse=False)
             iteration += 1
 
-        print(self.successors(current_puzzle))
+        print(successors(current_puzzle))
         print("Puzzle solved in " + str(iteration) + " iterations")
         print("Final f cost:", current_puzzle.f)
         if manhattan:
@@ -253,5 +245,43 @@ class Solver:
             print("Using misplaced tiles as heuristic\n")
 
 
-puzzle = Puzzle()
-Solver(puzzle).solve()
+def q1_2_3():
+    # Sets the heuristic to Manhattan
+    global manhattan
+    manhattan = True
+
+    # Creates a random puzzle (solved puzzle having had 50 random moves applied to it)
+    puzzle = Puzzle([1, 2, 7, 6, 0, 4, 8, 3, 5])
+    # Remove # below to generate a random puzzle, for comparison reasons I have left in a default puzzle
+    # puzzle = Puzzle()
+
+    Solver(puzzle).solve()
+
+    # Sets the heuristic to missing tiles
+    manhattan = False
+    puzzle = Puzzle([1, 2, 7, 6, 0, 4, 8, 3, 5])
+
+    Solver(puzzle).solve()
+
+
+def q1_3():
+    global manhattan
+    manhattan = True
+
+    inputPuzzle = input(
+        "Please enter in the numbers you would like to use for the puzzle, you must enter 9 numbers, 0-8, only using each one once and separating them by a"
+        "space\n eg. If you enter '0 1 2 3 4 5 6 7 8', you will create a puzzle that looks like this: \n"
+        "_ 1 2\n"
+        "3 4 5\n"
+        "6 7 8")
+
+    puzzleList = list(inputPuzzle.split())
+    puzzleList = list(map(int, puzzleList))
+
+    inputGoal = input("In the same format as above, please enter the goal state you'd like the puzzle to reach")
+
+    goalList = list(inputGoal.split())
+    goalList = list(map(int, goalList))
+
+    puzzle = Puzzle(puzzleList)
+    Solver(puzzle, goalList).solve()
