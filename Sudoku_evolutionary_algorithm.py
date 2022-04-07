@@ -1,3 +1,5 @@
+import math
+import time
 from random import random, choice
 import random
 
@@ -99,10 +101,12 @@ class Sudoku:
         :param y: The column that is being checked
         :return: True/False, depending on if the cell had a given value originally
         """
-        if initial_puzzle[x][y] == 0:
-            return True
-        else:
-            return False
+        initial_puzzle = self.puzzle_np(initial_puzzle)
+        initial_puzzle = initial_puzzle == 0
+        initial_puzzle[0][0]
+        initial_puzzle[1][0]
+        return initial_puzzle[x][y]
+
 
     def fitness(self, puzzle):
         """
@@ -111,7 +115,7 @@ class Sudoku:
         """
         # Row
         fitness_row = 0
-        #print(puzzle)
+        # print(puzzle)
         for row in puzzle:
             fitness_row += len(row) - len(set(row))
 
@@ -173,10 +177,10 @@ class Sudoku:
         :return: The list of candidates without the ones that weren't selected in the form [puzzle list]
         """
         # Choose best candidates
-        candidates_to_keep = candidates[:(int(len(candidates) * (1 - truncation_rate)))]
-        new_candidate_list = []
+        candidates_to_keep = math.ceil(population_size - population_size * truncation_rate)
+        new_candidate_list = candidates[:candidates_to_keep]
 
-        return candidates_to_keep
+        return new_candidate_list
 
     def crossover(self, parent_1, parent_2):
         # Choose two random parents from provided population
@@ -196,10 +200,20 @@ class Sudoku:
                         child_2[row][column] = parent_1[row][column]
                     else:
                         child_2[row][column] = parent_2[row][column]
-
-        return [child_1.tolist(), child_2.tolist()]
+                else:
+                    child_1[row][column] = self.puzzle_np()[row][column]
+                    child_2[row][column] = self.puzzle_np()[row][column]
+        return [self.mutate(child_1.tolist()), self.mutate(child_2.tolist())]
 
     def mutate(self, child):
+        m_rate = mutation_rate * 10
+        m = random.randint(1, 10)
+        for i in range(2):
+            if m > m_rate:
+                random_row = random.randint(0, 8)
+                random_column = random.randint(0, 8)
+                if self.is_cell_changeable(self.sudoku_puzzle, random_row, random_column):
+                    child[random_row][random_column] = random.randint(1, 9)
         return child
 
     def breed(self, mating_pool):
@@ -209,7 +223,7 @@ class Sudoku:
         :return: A list of children produced
         """
         children_list = []
-        while len(children_list) < (len(mating_pool)):
+        while len(children_list) < population_size:
             parents = []
             # Crossover cells from parents
             parents = random.sample(mating_pool, 2)
@@ -220,7 +234,8 @@ class Sudoku:
             children_list.append(child_1)
             child_2 = self.mutate(children[1])
             children_list.append(child_2)
-
+        #print(len(mating_pool))
+        #print(len(children_list))
         return children_list
 
     def evolve(self, population=None):
@@ -235,65 +250,110 @@ class Sudoku:
 
         # Sort population by f
         population = self.sort_by_f(population)
-        print("Sorted population by fitness")
+        #print("Sorted population by fitness")
 
         # Select best from population
         mating_pool = self.select_best(population)
-        print("Selected best candidates from population")
+
+        #print("Selected best candidates from population")
 
         # Breed new generation from mating pool
         child_candidates = self.breed(mating_pool)
-        print("Successfully bread best candidates")
-
-        # New generation made up of best 25% of parents and best 75% of children
-        p = int((len(mating_pool)/4)*3)
-        c = int(len(mating_pool)/4)
-        parents = mating_pool[:p]
         child_candidates = self.sort_by_f(child_candidates)
-        children = child_candidates[:c]
 
-        new_generation = child_candidates + mating_pool
+        #print("Successfully bread best candidates")
 
+        # New generation made up of 25% best parents and 75% best children
+        quarter = math.ceil(population_size/4)
+        three_quarters = math.ceil(population_size * 0.75)
+        children = child_candidates[:three_quarters]
+        parents = mating_pool[:quarter]
+
+        new_generation = parents + children
         return new_generation
 
 
 def run():
+    print("population_size: " + str(population_size) + "\n" +
+          "provided_file: " + provided_file + "\n" +
+          "generation_limit: " + str(generation_limit))
+    start = time.time()
     generation_number = 0
+    optimal_solution_found = False
     original_sudoku = Sudoku(read_file(provided_file), population_size)
-    candidates = original_sudoku.seed_new_population()
     best_candidate = ""
-
+    candidates = original_sudoku.seed_new_population()
+    new_generation = original_sudoku.evolve(candidates)
     while generation_number <= generation_limit and not optimal_solution_found:
-        candidates = original_sudoku.evolve(candidates)
+        new_generation = original_sudoku.evolve(new_generation)
         generation_number += 1
-        #print(candidates)
-        best_candidate = candidates[0]
+        # print(candidates)
+        best_candidate = new_generation[0]
         print("Generation: " + str(generation_number))
         print("Best score for this generation: " + str(original_sudoku.fitness(best_candidate)) + " (lower is better)")
-        #print(original_sudoku.puzzle_np(best_candidate))
+#        print(original_sudoku.puzzle_np(best_candidate))
         print("\n")
-
+        if original_sudoku.fitness(best_candidate) == 0:
+            end = time.time()
+            optimal_solution_found = True
 
     if optimal_solution_found:
-        print("Optimal solution found at generation " + str(generation_number))
+        print("Optimal solution found in " + str(end-start) + " seconds at generation " + str(generation_number))
         print(original_sudoku.puzzle_np(best_candidate))
 
     else:
+        end = time.time()
         print("Generation limit reached, best solution score:" + str(original_sudoku.fitness(best_candidate)))
+        print("Time elapsed: " + str(end-start) + " seconds")
         print(original_sudoku.puzzle_np(best_candidate))
+
 
 # Global variables
 truncation_rate = 0.4
+mutation_rate = 0.6
+population_size = 100
+generation_limit = 50000
+
 population_size = 10000
 provided_file = "./grids/Grid1.ss"
-generation_limit = 5000
-optimal_solution_found = False
-
 run()
 
 """
-sudoku = Sudoku(read_file("./grids/Grid1.ss"), 10)
-original_population = sudoku.seed_new_population()
-sudoku.select_best(original_population)
-print(sudoku.evolve(original_population)"""
+for i in range(5):
+    # Run tests
+
+    generation_limit = 5000
+    population_size = 10000
+    provided_file = "./grids/Grid1.ss"
+    run()
+    provided_file = "./grids/Grid2.ss"
+    run()
+    provided_file = "./grids/Grid3.ss"
+    run()
+
+    population_size = 1000
+    provided_file = "./grids/Grid1.ss"
+    run()
+    provided_file = "./grids/Grid2.ss"
+    run()
+    provided_file = "./grids/Grid3.ss"
+    run()
+
+    generation_limit = 10000
+    population_size = 100
+    provided_file = "./grids/Grid1.ss"
+    run()
+    provided_file = "./grids/Grid2.ss"
+    run()
+    provided_file = "./grids/Grid3.ss"
+    run()
+
+    generation_limit = 50000
+    population_size = 10
+    provided_file = "./grids/Grid1.ss"
+    run()
+    provided_file = "./grids/Grid2.ss"
+    run()
+    provided_file = "./grids/Grid3.ss"
+    run()"""
 
